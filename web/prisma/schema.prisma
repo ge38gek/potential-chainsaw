@@ -1,0 +1,73 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Destination {
+  id              String   @id @default(cuid())
+  city            String
+  country         String
+  iataCityCode    String?  // optional at first; helpful for flight APIs
+  lat             Float
+  lng             Float
+  currency        String   @default("EUR")
+  // Baselines
+  hotelNightEur   Int      // e.g., 110
+  dailySpendTier  DailySpendTier
+  // Seasonality
+  seasonality     SeasonalityMonth[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([country])
+  @@index([city])
+  @@unique([city, country], name: "city_country")
+}
+
+model SeasonalityMonth {
+  id            String      @id @default(cuid())
+  destinationId String
+  month         Int         // 1..12
+  season        SeasonType
+  multiplier    Float       // e.g., 0.85, 1.0, 1.25
+  destination   Destination @relation(fields: [destinationId], references: [id], onDelete: Cascade)
+
+  @@unique([destinationId, month])
+  @@index([month])
+}
+
+model FlightQuoteCache {
+  id            String   @id @default(cuid())
+  originIata    String
+  destIataCity  String
+  year          Int
+  month         Int
+  medianEur     Int
+  updatedAt     DateTime @updatedAt
+
+  @@unique([originIata, destIataCity, year, month])
+  @@index([originIata])
+  @@index([destIataCity])
+}
+
+enum DailySpendTier {
+  BUDGET
+  MID
+  COMFORT
+}
+
+enum SeasonType {
+  LOW
+  SHOULDER
+  HIGH
+}
